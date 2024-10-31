@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css?family=Pacifico" rel="stylesheet" type="text/css">
+    <title>Happy Diwali - Prashad</title>
+    <style>
+        .diwali-text {
+            font-family: 'Arial', cursive;
+            background: linear-gradient(94deg, #82f369 11%, #91cfff 40%, #fb0064 100%);
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-fill-color: transparent;
+            font-size: 8vw; /* Responsive font size */
+            text-align: center;
+            margin-top: 2vh; /* Responsive margin */
+            z-index: 2;
+        }
+        body {
+            background-color: #0B0C10;
+            margin: 0;
+            cursor: crosshair;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-image: radial-gradient(circle, #000000 10%, #1f1c18 50%);
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; /* Responsive canvas */
+            height: 100%; /* Responsive canvas */
+            z-index: 1;
+        }
+        .instructions {
+            color: #ffffff;
+            font-size: 2vw; /* Responsive font size */
+            margin-top: 1vh;
+            font-family: Arial, sans-serif;
+            z-index: 2;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="diwali-text" id="diwaliText">Happy Diwali!</h1>
+    <p class="instructions">Click anywhere to celebrate with fireworks!</p>
+    <canvas id="fireworksCanvas"></canvas>
+    <audio id="fireworkSound" src="skyshot_sound.wav" type="audio/mpeg"></audio>
+
+    <script>
+        window.onload = function() {
+            // Prompt user for their name
+            const userName = prompt("Please enter your name:");
+            const diwaliTextElement = document.getElementById("diwaliText");
+            
+            // Update the Diwali message with the user's name if provided
+            if (userName) {
+                diwaliTextElement.innerText = `Happy Diwali, ${userName}!`;
+            }
+        };
+
+        const canvas = document.getElementById("fireworksCanvas");
+        const ctx = canvas.getContext("2d");
+        const fireworkSound = document.getElementById("fireworkSound");
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener("resize", resizeCanvas);
+
+        const particles = [];
+        const fireworks = [];
+
+        class Particle {
+            constructor(x, y, color, speed, angle, life) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.speed = speed;
+                this.angle = angle;
+                this.life = life;
+                this.opacity = 1;
+                this.trail = [{x: this.x, y: this.y}];
+            }
+
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed + 0.2;
+                this.opacity -= 0.02;
+                this.life -= 1;
+
+                if (Math.random() > 0.9) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, Math.random() * 2 + 1, 0, Math.PI * 2);
+                    ctx.fillStyle = "rgba(255, 255, 255, " + this.opacity + ")";
+                    ctx.fill();
+                }
+
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 5) this.trail.shift();
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                this.trail.forEach((point) => {
+                    ctx.lineTo(point.x, point.y);
+                });
+                ctx.strokeStyle = `rgba(${this.color}, ${this.opacity})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+
+        class Firework {
+            constructor(x, y, targetX, targetY, color) {
+                this.x = x;
+                this.y = y;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.color = color;
+                this.exploded = false;
+                this.speed = 7;  // Increase launch speed
+                this.particles = [];
+            }
+
+            explode() {
+                this.exploded = true;
+                for (let i = 0; i < 80; i++) {
+                    const speed = Math.random() * 3 + 1;
+                    const angle = Math.random() * 2 * Math.PI;
+                    const color = `255, ${Math.floor(Math.random() * 155 + 100)}, 50`;
+                    const particle = new Particle(this.x, this.y, color, speed, angle, 100);
+                    particles.push(particle);
+                }
+            }
+
+            draw() {
+                if (!this.exploded) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${this.color}, 1)`;
+                    ctx.fill();
+                }
+            }
+
+            update() {
+                if (!this.exploded) {
+                    const dx = this.targetX - this.x;
+                    const dy = this.targetY - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < this.speed) {
+                        this.explode();
+                    } else {
+                        this.x += dx / distance * this.speed;
+                        this.y += dy / distance * this.speed;
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            fireworks.forEach((firework, i) => {
+                firework.update();
+                firework.draw();
+                if (firework.exploded) fireworks.splice(i, 1);
+            });
+
+            particles.forEach((particle, i) => {
+                particle.update();
+                particle.draw();
+                if (particle.life <= 0 || particle.opacity <= 0) particles.splice(i, 1);
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        canvas.addEventListener("click", (e) => {
+            const firework = new Firework(canvas.width / 2, canvas.height, e.clientX, e.clientY, "255, 150, 0");
+            fireworks.push(firework);
+
+            fireworkSound.currentTime = 0;
+            fireworkSound.play();
+        });
+
+        animate();
+    </script>
+
+</body>
+</html>
